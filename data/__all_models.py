@@ -1,1 +1,1 @@
-from .models import AllowedUsers, RegisteredUsers, ToptoonManga
+from .models import AllowedUsers, RegisteredUsers, ToptoonManga, ToomicsManga

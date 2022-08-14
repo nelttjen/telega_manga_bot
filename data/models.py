@@ -27,7 +27,7 @@ class ToptoonManga(Model):
 
     preview_link = _(sqlalchemy.String)
 
-    index = _(sqlalchemy.Integer)
+    index = _(sqlalchemy.Integer, unique=True)
     str_index = _(sqlalchemy.String)
 
     original_title = _(sqlalchemy.String)
@@ -43,3 +43,24 @@ class ToptoonManga(Model):
     current_chapter = _(sqlalchemy.Integer)
     views = _(sqlalchemy.Integer)
     rating = _(sqlalchemy.Float)
+
+
+class ToomicsManga(Model):
+    __tablename__ = 'toomics'
+
+    id = _(sqlalchemy.Integer, autoincrement=True, primary_key=True)
+
+    preview_link = _(sqlalchemy.String)
+
+    index = _(sqlalchemy.Integer, unique=True)
+
+    eng_title = _(sqlalchemy.String)
+    rus_title = _(sqlalchemy.String)
+
+    eng_description = _(sqlalchemy.String)
+    rus_description = _(sqlalchemy.String)
+
+    eng_tags = _(sqlalchemy.String)
+    rus_tags = _(sqlalchemy.String)
+
+    current_chapter = _(sqlalchemy.Integer)
