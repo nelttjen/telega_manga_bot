@@ -10,9 +10,11 @@ import requests
 
 
 from dotenv import load_dotenv
+from selenium.webdriver.common.by import By
 from sqlalchemy.exc import IntegrityError
 from pathlib import Path
-from selenium.webdriver import Chrome
+from selenium.webdriver import Chrome, Firefox
+from selenium.webdriver.support.ui import WebDriverWait
 
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -105,6 +107,14 @@ async def cancel_inputs(message: types.Message, state: FSMContext):
     await message.reply('Главное меню', reply_markup=keyb)
 
 
+@dp.message_handler(commands='stop7115', state='*')
+async def stop(m):
+    if m.from_user.id == 474761641:
+        driver.quit()
+        await send_admins('[ADMIN] Bot aborted by @nelttjen')
+        quit()
+
+
 @dp.message_handler(state=States.id_wait)
 async def add_by_user_id(message: types.Message, state: FSMContext):
     try:
@@ -121,8 +131,12 @@ async def add_by_user_id(message: types.Message, state: FSMContext):
         await message.reply('Ошибка, попробуйте ещё раз (/cancel)')
 
 
-async def login_toptoon():
+async def first_load():
     driver.get('https://toptoon.com/latest')
+    await load_cookie_to_driver()
+
+
+async def load_cookie_to_driver():
     with open('cookie.json', 'r', encoding='utf-8') as cookie:
         data = json.load(cookie)
         for i in data:
@@ -134,6 +148,40 @@ async def login_toptoon():
             cookie_now['name'] = i['name']
             cookie_now['value'] = i['value']
             driver.add_cookie(cookie_now)
+
+
+async def login_topton_manual():
+    try:
+        driver.delete_all_cookies()
+        driver.get('https://toptoon.com/latest')
+        await asyncio.sleep(5)
+        elem = driver.find_element(By.CLASS_NAME, 'switch_19mode')
+        if elem.get_attribute('data-adult') != '3':
+            elem.click()
+            await asyncio.sleep(1)
+            login = driver.find_element(By.NAME, 'userId')
+            passw = driver.find_element(By.NAME, 'userPw')
+            button = driver.find_element(By.CLASS_NAME, 'confirm-button')
+            login.send_keys(os.getenv('TOPTOON_USERNAME'))
+            await asyncio.sleep(1)
+            passw.send_keys(os.getenv('TOPTOON_PASSWORD'))
+            await asyncio.sleep(1)
+            button.click()
+            await asyncio.sleep(5)
+            driver.get('https://toptoon.com/latest')
+            switch = driver.find_element(By.CLASS_NAME, 'switch_19mode')
+            if switch.get_attribute('data-adult') != '3':
+                driver.get('https://toptoon.com/latest')
+                switch = driver.find_element(By.CLASS_NAME, 'switch_19mode')
+                switch.click()
+            await login_toptoon()
+        else:
+            await login_toptoon()
+    except Exception:
+        await login_toptoon()
+
+
+async def login_toptoon():
     driver.get('https://toptoon.com/latest')
     with open('cookie.json', 'w', encoding='utf-8') as cookie:
         cookies = []
@@ -149,7 +197,6 @@ async def login_toptoon():
         data = json.load(cookie)
         for i in data:
             toptoon_s.cookies.set(name=i['name'], value=i['value'], domain=i['domain'])
-        await send_admins(f'[ADMINS] Toptoon was re-logged in at {datetime.datetime.now()} UTC+5')
 
 
 def make_translations(texts: list, from_lang='ko', to_lang='ru'):
@@ -170,6 +217,7 @@ def make_translations(texts: list, from_lang='ko', to_lang='ru'):
 
 
 async def fetch_toptoon():
+    global count
     session = db_session.create_session()
     m_resp = toptoon_s.get('https://toptoon.com/latest').text
     html = pq.PyQuery(m_resp)
@@ -179,12 +227,18 @@ async def fetch_toptoon():
 
     data = []
 
-    if toptoon_s.cookies.get('showAdult') == '2':
+    if html('a.switch_19mode').attr('data-adult') == '3':
+        if count > 0:
+            await send_admins(f'[ADMIN] TOPTOON Re-logged in successfully at {datetime.datetime.now()} UTC+5')
+        count = 0
         for item in html('.jsComicObj').items():
             if int(item.attr('data-comic-idx')) not in [i.index for i in created]:
                 img_url = item.find('.thumbbox').attr('data-bg')
                 index = int(item.attr('data-comic-idx'))
                 str_index = item.attr('data-comic-id')
+
+                curr_chapter = int(item.find('.tit_thumb_e').text().replace('제', '').replace('화', ''))
+                views = int(float(item.find('.viewCountTxt').text().replace('만', '')) * 10000)
 
                 orig_title = item.find('.thumb_tit_text').text()
                 eng_title = make_translations([orig_title, ], to_lang="en")[0]['text']
@@ -201,8 +255,6 @@ async def fetch_toptoon():
                     orig_tags[i] = str_cell
                 transl_tags = make_translations(orig_tags)
 
-                curr_chapter = int(item.find('.tit_thumb_e').text().replace('제', '').replace('화', ''))
-                views = int(float(item.find('.viewCountTxt').text().replace('만', '')) * 10000)
                 rating = float(html2('.comic_spoint').text())
 
                 text = f"""
@@ -253,6 +305,13 @@ async def fetch_toptoon():
         session.commit()
         return {'success': True, 'data': data}
     else:
+        if count == 3:
+            await send_admins('[ADMIN] FAILED TO LOG IN TOPTOON, aborting...')
+            quit()
+        count += 1
+        await login_topton_manual()
+        await send_admins(f'[ADMIN] BAD SESSION! Trying to re-log in {count}/3')
+
         return {'success': False}
 
 
@@ -268,25 +327,24 @@ async def fetch_manga():
                                      item['media'],
                                      caption=item['text'])
             await asyncio.sleep(1)
-    elif not noticed:
-        noticed = True
-        for user in users:
-            if user.is_admin:
-                await bot.send_message(user.user_id, f'СЛЕТЕЛА СЕССИЯ!!!! {datetime.datetime.now()}')
 
 
 async def scheduler():
     aioschedule.every(30).seconds.do(fetch_manga)
-    aioschedule.every(2).hours.do(login_toptoon)
+    # aioschedule.every(30).minutes.do(login_toptoon)
     while True:
         await asyncio.sleep(1)
         await aioschedule.run_pending()
 
 
 async def start_scheduler(_):
-    asyncio.create_task(scheduler())
-    await login_toptoon()
+    _start = datetime.datetime.now()
+    # await first_load()
+    # await login_toptoon()
+    await login_topton_manual()
     await fetch_manga()
+    asyncio.create_task(scheduler())
+    await send_admins(f'[ADMIN] Bot started in {(datetime.datetime.now() - _start)} seconds')
 
 
 async def send_admins(text: str):
@@ -316,4 +374,5 @@ def init_logger():
 if __name__ == "__main__":
     init_logger()
     noticed = False
+    count = 0
     executor.start_polling(dp, skip_updates=True, on_startup=start_scheduler)
