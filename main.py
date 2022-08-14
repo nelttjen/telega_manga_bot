@@ -43,6 +43,9 @@ toomics_s = requests.Session()
 driver = Chrome('./chromedriver.exe')
 driver_mics = Chrome('./chromedriver.exe')
 
+driver.set_window_rect(1920, 0, 850, 1000)
+driver_mics.set_window_rect(2790, 0, 1100, 1000)
+
 
 class States(StatesGroup):
     id_wait = State()
@@ -127,7 +130,8 @@ async def add_user_call(message: types.Message, state: FSMContext):
     keyb = types.ReplyKeyboardMarkup(resize_keyboard=True)
     cancel = types.KeyboardButton('Отмена')
     keyb.add(cancel)
-    await message.reply('Добавить пользователя по ID\n\nID можно узнать: @getmyid_bot, @username_to_id_bot', reply_markup=keyb)
+    await message.reply('Добавить пользователя по ID\n\nID можно узнать: @getmyid_bot, @username_to_id_bot',
+                        reply_markup=keyb)
 
 
 @dp.message_handler(commands='cancel', state='*')
@@ -161,31 +165,45 @@ async def add_by_user_id(message: types.Message, state: FSMContext):
         await state.finish()
         keyb = get_start_keyboard(message)
         await bot.send_message(message.from_user.id, 'Пользователь добавлен', reply_markup=keyb)
-    except Exception:
+    except:
         await message.reply('Ошибка, попробуйте ещё раз (/cancel)')
 
 
 async def login_toomics_manual():
     try:
         driver_mics.delete_all_cookies()
-        driver_mics.get('https://global.toomics.com/en/age_verification')
-        element = driver_mics.find_element(By.CLASS_NAME, 'button_yes')
-        element.click()
-        driver_mics.get('https://global.toomics.com/en/webtoon/new_comics')
-        await login_toomics()
+        driver_mics.get('https://www.toomics.com/webtoon/toon_list/display/G2')
+        try:
+            driver_mics.find_element(By.CSS_SELECTOR, '.mode3.active')
+            succ = True
+        except Exception:
+            succ = False
+        if not succ:
+            element = driver_mics.find_element(By.CLASS_NAME, 'mode3')
+            element.click()
+            await asyncio.sleep(3)
+            driver_mics.find_element(By.CSS_SELECTOR, '.auths__login > a').click()
+            await asyncio.sleep(3)
+            login = driver_mics.find_element(By.NAME, 'user_id')
+            passw = driver_mics.find_element(By.NAME, 'user_pw')
+            login.send_keys(os.getenv('TOOMICS_USERNAME'))
+            passw.send_keys(os.getenv('TOOMICS_PASSWORD'))
+            driver_mics.find_element(By.CSS_SELECTOR, '#login_frm > p > button').click()
+            await login_toomics()
+        else:
+            print(driver_mics.find_element(By.CSS_SELECTOR, '.mode3.active'))
+            await login_toomics()
     except Exception as e:
-        await send_admins(e.__str__())
+        print(e)
+        quit()
+        await login_toomics()
 
 
 async def login_toomics():
-    driver_mics.get('https://global.toomics.com/en/webtoon/new_comics')
-    with open('cookie_toomics.json', 'w', encoding='utf-8') as f:
-        cookies = get_cookie_from_driver(driver_mics, 'global.toomics.com')
-        json.dump(cookies, f)
-    await login_toomics_cashed()
-
-
-async def login_toomics_cashed():
+    # driver_mics.get('https://www.toomics.com/webtoon/toon_list/display/G2')
+    # with open('cookie_toomics.json', 'w', encoding='utf-8') as f:
+    #     cookies = get_cookie_from_driver(driver_mics, 'toomics.com')
+    #     json.dump(cookies, f)
     with open('cookie_toomics.json', 'r', encoding='utf-8') as f:
         load_to_session(f, toomics_s)
 
@@ -291,7 +309,7 @@ async def fetch_toptoon():
                     transl_title = make_translations([orig_title, ])[0]['text']
                     transl_desc = make_translations([orig_desc, ])[0]['text']
                     transl_tags = make_translations(orig_tags)
-                except Exception:
+                except:
                     eng_title, transl_title, transl_desc, transl_tags = ['err'] * 4
 
                 text = f"""
@@ -319,28 +337,7 @@ DEBUG: {index}
 
                 text = inspect.cleandoc(text)
                 if len(text) > 4096:
-                    text = f"""
-#toptoon #{str_index}
-
-Новая манга!
-Ссылка: https://toptoon.com/comic/ep_list/{str_index}
-
-Индекс: {index}
-
-===Название===
-{transl_title} / {eng_title} / {orig_title}
-
-===Описание=== 
-{transl_desc}
-
-Теги: {' '.join(orig_tags)} {
-' '.join(['_'.join(i['text'].replace('# ', '#').split(' ')) for i in transl_tags])
-}
-
-Всего глав: {curr_chapter}
-Просмотров: {views}
-Рейтинг: {rating}"""
-                    text = inspect.cleandoc(text)
+                    text = text.replace('Перевод: ', '').replace(f'Оригинал: {orig_desc}', '')
                 data.append({'text': text, 'media': img_url})
 
                 new = models.ToptoonManga(
@@ -380,51 +377,59 @@ async def fetch_toomics():
         return {'success': False}
     session = db_session.create_session()
 
-    m_resp = toomics_s.get('https://global.toomics.com/en/webtoon/new_comics')
+    m_resp = toomics_s.get('https://www.toomics.com/webtoon/toon_list/display/G2')
     html = pq.PyQuery(m_resp.text)
     with open('./debug/toomics.html', 'w', encoding='utf-8') as f:
         f.write(m_resp.text)
 
     data = []
 
-    if html('.section_19plus.off').text() == 'Family Safe':
+    if html('.mode3.active'):
         if count_toomics > 3:
             count_toomics = 0
-            await send_admins(f'[ADMIN] Toomics 18+ enabled succesfull at {datetime.datetime.now()} UTC+5')
-        items = html('li > div.visual').items()
+            await send_admins(f'[ADMIN] Toomics re-logged in succesfully at {datetime.datetime.now()} UTC+5')
+        items = html('.grid__li').items()
         exists = session.query(models.ToomicsManga).all()
         exists_indexes = [item.index for item in exists]
         for item in items:
-            if all([item.find('.ico_19plus'), 'BL' not in item.find('.etc').html(),
-                    int(item.find('a').attr("href").split('/')[-1]) not in exists_indexes]):
-                item_link = f'https://global.toomics.com{item.find("a").attr("href")}'
+            if int(item.find('a').attr('href').split('/')[-1]) not in exists_indexes:
+                item_link = f'https://www.toomics.com{item.find("a").attr("href")}'
                 html2 = pq.PyQuery(toomics_s.get(item_link).text)
 
-                preview_img = item.find('div.visual > p > img').attr('src')
+                preview_img = item.find('.toon-dcard__thumbnail img').attr('data-original')
 
                 index = int(item.find('a').attr("href").split('/')[-1])
 
-                eng_title = item.find('.title').text()
-                eng_desc = html2('.title_content > h2').text()
-                eng_tags = ' '.join([f'#{"_".join(item.text().split(" "))}' for item in item.find('.etc span').items()])
+                ko_title = item.find('.toon-dcard__title').text()
+                ko_desc = html2('.episode__summary').text().replace('+ 더보기', '')
+                ko_tags = ' '.join(['_'.join(tag.text().split(" ")) for tag in html2('.episode__tags .tag').items()])
+
+                chapter = int(get_clear_number(item.find('.toon-dcard__subtitle').text()[:4]))
 
                 try:
-                    rus_title = make_translations([eng_title, ], from_lang='en')[0]['text']
-                    rus_desc = make_translations([eng_desc, ], from_lang='en')[0]['text']
-                    rus_tags = make_translations([eng_tags, ], from_lang='en')[0]['text']
-                except Exception:
-                    rus_title, rus_desc, rus_tags = ['err'] * 3
+                    eng_title = make_translations([ko_title, ], to_lang='en')[0]['text']
+                    rus_title = make_translations([ko_title, ])[0]['text']
+                    rus_desc = make_translations([ko_desc, ])[0]['text']
+                    rus_tags = make_translations([ko_tags, ])[0]['text']\
+                        .replace("# ", '#').replace('"', '').replace('-', '_')
+                except:
+                    eng_title, rus_title, rus_desc, rus_tags = ['err'] * 4
 
-                chapter = int(item.find('.section_remai').text().split('/')[0])
+                # #Сериал Тойо #драма -> #Сериал_Тойо #драма
+                rus_tags = rus_tags[1:].split('#')
+                rus_tags = f"#{' #'.join(['_'.join(tag.strip().capitalize().split(' ')) for tag in rus_tags])}"
+
+                print(*[index, ko_title, ko_desc, ko_tags, eng_title, rus_title, rus_desc, rus_tags, chapter], sep='\n')
 
                 _new = models.ToomicsManga(
                     preview_link=preview_img,
                     index=index,
+                    ko_title=ko_title,
                     eng_title=eng_title,
                     rus_title=rus_title,
-                    eng_description=eng_desc,
+                    ko_description=ko_desc,
                     rus_description=rus_desc,
-                    eng_tags=eng_tags,
+                    ko_tags=ko_tags,
                     rus_tags=rus_tags,
                     current_chapter=chapter,
                 )
@@ -439,16 +444,18 @@ async def fetch_toomics():
 Индекс: {index}
                 
 ===Название===
-{eng_title} / {rus_title}
+{ko_title} / {eng_title} / {rus_title}
                 
 ===Описание===
-Оригинал: {eng_desc}
 Перевод: {rus_desc}
+Оригинал: {ko_desc}
                 
-Теги: {eng_tags} {rus_tags}
+Теги: {ko_tags} {rus_tags}
                 
 Всего глав: {chapter}"""
                 text = inspect.cleandoc(text)
+                if len(text) > 4096:
+                    text = text.replace(f'Оригинал: {ko_desc}', '').replace('Перевод: ', '')
                 data.append({'text': text, 'media': preview_img})
         session.commit()
         return {'success': True, 'data': data}
@@ -458,7 +465,7 @@ async def fetch_toomics():
             count_toomics = 10
             return {'success': False}
         count_toomics += 1
-        await send_admins(f'[ADMIN] TOOMICS 18+ WAS DISABLED! TRYING TO ENABLE {count_toomics}/3')
+        await send_admins(f'[ADMIN] TOOMICS BAD SESSION! Trying to re-log in {count_toomics}/3')
         await login_toomics_manual()
         return {'success': False}
 
@@ -478,7 +485,7 @@ async def fetch_manga():
                     await bot.send_photo(user.user_id,
                                          item['media'],
                                          caption=item['text'])
-                except Exception:
+                except:
                     continue
             await asyncio.sleep(1)
 
@@ -500,16 +507,15 @@ async def start_scheduler(_):
     _start = datetime.datetime.now()
     if not DEBUG:
         await login_topton_manual()
-        await login_toomics_cashed()
-        await fetch_manga()
-        asyncio.create_task(scheduler())
+        await login_toomics_manual()
         await send_admins(f'[ADMIN] Bot started in PRODUCTION mode '
                           f'({(datetime.datetime.now() - _start).seconds} seconds)')
+        await fetch_manga()
+        asyncio.create_task(scheduler())
+
     else:
-        # code
+        pass
         await send_admins('[ADMIN] Bot started in DEBUG mode')
-        await login_toomics_cashed()
-        await fetch_toomics()
 
 
 async def send_admins(text: str):
@@ -546,7 +552,7 @@ if __name__ == "__main__":
 
     try:
         os.mkdir('./debug')
-    except Exception:
+    except:
         pass
 
     executor.start_polling(dp, skip_updates=True, on_startup=start_scheduler)

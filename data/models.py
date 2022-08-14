@@ -54,13 +54,14 @@ class ToomicsManga(Model):
 
     index = _(sqlalchemy.Integer, unique=True)
 
+    ko_title = _(sqlalchemy.String)
     eng_title = _(sqlalchemy.String)
     rus_title = _(sqlalchemy.String)
 
-    eng_description = _(sqlalchemy.String)
+    ko_description = _(sqlalchemy.String)
     rus_description = _(sqlalchemy.String)
 
-    eng_tags = _(sqlalchemy.String)
+    ko_tags = _(sqlalchemy.String)
     rus_tags = _(sqlalchemy.String)
 
     current_chapter = _(sqlalchemy.Integer)
