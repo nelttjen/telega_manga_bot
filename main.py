@@ -5,18 +5,16 @@ import json
 import logging
 import os
 import string
-
 import aioschedule
 import pyquery as pq
 import requests
 
-
+from pathlib import Path
 from dotenv import load_dotenv
+from selenium.webdriver import Chrome
 from selenium.webdriver.common.by import By
 from sqlalchemy.exc import IntegrityError
-from pathlib import Path
-from selenium.webdriver import Chrome, Firefox
-from selenium.webdriver.support.ui import WebDriverWait
+
 
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -436,7 +434,7 @@ async def fetch_toomics():
                 session.add(_new)
                 print(f'toomics created: {index}')
                 text = f"""
-#toomics #{index}
+#toomics
                 
 Новая манга!
 Ссылка: {item_link}
@@ -514,7 +512,7 @@ async def start_scheduler(_):
         asyncio.create_task(scheduler())
 
     else:
-        pass
+        # DEBUG CODE
         await send_admins('[ADMIN] Bot started in DEBUG mode')
 
 
