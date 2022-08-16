@@ -11,7 +11,7 @@ import data.__all_models as models
 
 from data import db_session
 from utils import ROOT_DIR
-from login.session import login_toomics_manual, login_topton_manual
+from login.session import login_toomics_manual, login_topton_manual, driver, driver_mics
 from bot.actions import fetch_toptoon, fetch_toomics
 
 from bot.bot import bot, dp, send_admins
@@ -69,7 +69,10 @@ async def start_scheduler(_):
 
 
 async def notify(_):
-    await send_admins(f'[ADMIN] Bot aborted by console at {datetime.datetime.now()} UTC+5')
+    if _ is None:
+        await send_admins(f'[ADMIN] Bot aborted by console at {datetime.datetime.now()} UTC+5')
+    else:
+        await send_admins(f'[ADMIN] CRITICAL ERROR: Bot crushed')
 
 
 def init_logger():
@@ -96,5 +99,10 @@ if __name__ == "__main__":
     init_dirs()
 
     DEBUG = False
-
-    executor.start_polling(dp, skip_updates=True, on_startup=start_scheduler, on_shutdown=notify)
+    try:
+        executor.start_polling(dp, skip_updates=True, on_startup=start_scheduler, on_shutdown=notify)
+    except KeyboardInterrupt:
+        notify(None)
+        driver.quit()
+        driver_mics.quit()
+        quit()

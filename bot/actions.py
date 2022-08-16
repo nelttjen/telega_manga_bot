@@ -39,8 +39,14 @@ async def fetch_toptoon():
                 index = int(item.attr('data-comic-idx'))
                 str_index = item.attr('data-comic-id')
 
-                curr_chapter = int(get_clear_number(item.find('.tit_thumb_e').text()))
-                views = int(float(get_clear_number(item.find('.viewCountTxt').text())) * 10000)
+                try:
+                    curr_chapter = int(get_clear_number(item.find('.tit_thumb_e').text()))
+                except ValueError:
+                    curr_chapter = 0
+                try:
+                    views = int(float(get_clear_number(item.find('.viewCountTxt').text())) * 10000)
+                except ValueError:
+                    views = 0
 
                 orig_title = item.find('.thumb_tit_text').text()
 
@@ -52,16 +58,21 @@ async def fetch_toptoon():
                 for i, cell in enumerate(orig_tags):
                     str_cell = '_'.join(cell.split(' '))
                     orig_tags[i] = str_cell
-
-                rating = float(html2('.comic_spoint').text())
+                try:
+                    rating = float(html2('.comic_spoint').text())
+                except ValueError:
+                    rating = 0.0
 
                 try:
-                    eng_title = make_translations([orig_title, ], to_lang="en")[0]['text']
-                    transl_title = make_translations([orig_title, ])[0]['text']
-                    transl_desc = make_translations([orig_desc, ])[0]['text']
-                    transl_tags = make_translations(orig_tags)
+                    eng_title = make_translations([orig_title, ], to_lang="en")[0]['text'] if orig_title else 'No title'
+                    transl_title = make_translations([orig_title, ])[0]['text'] if orig_title else 'Без названия'
+                    transl_desc = make_translations([orig_desc, ])[0]['text'] if orig_desc else 'Без описания'
+                    transl_tags = make_translations(orig_tags) if orig_tags else 'Без тегов'
                 except:
                     eng_title, transl_title, transl_desc, transl_tags = ['err'] * 4
+
+                if not orig_desc:
+                    orig_desc = 'No description'
 
                 text = f"""
 #toptoon #{str_index}
@@ -152,17 +163,19 @@ async def fetch_toomics():
                 index = int(item.find('a').attr("href").split('/')[-1])
 
                 ko_title = item.find('.toon-dcard__title').text()
-                ko_desc = html2('.episode__summary').text().replace('+ 더보기', '')
+                ko_desc = ' '.join([i.text() for i in html2('.modal-body > div > p').items()])
                 ko_tags = ' '.join(['_'.join(tag.text().split(" ")) for tag in html2('.episode__tags .tag').items()])
-
-                chapter = int(get_clear_number(item.find('.toon-dcard__subtitle').text()[:4]))
+                try:
+                    chapter = int(get_clear_number(item.find('.toon-dcard__subtitle').text()[:4]))
+                except ValueError:
+                    chapter = 0
 
                 try:
-                    eng_title = make_translations([ko_title, ], to_lang='en')[0]['text']
-                    rus_title = make_translations([ko_title, ])[0]['text']
-                    rus_desc = make_translations([ko_desc, ])[0]['text']
+                    eng_title = make_translations([ko_title, ], to_lang='en')[0]['text'] if ko_title else 'No title'
+                    rus_title = make_translations([ko_title, ])[0]['text'] if ko_title else 'Без названия'
+                    rus_desc = make_translations([ko_desc, ])[0]['text'] if ko_desc else 'Без описания'
                     rus_tags = make_translations([ko_tags, ])[0]['text'] \
-                        .replace("# ", '#').replace('"', '').replace('-', '_')
+                        .replace("# ", '#').replace('"', '').replace('-', '_') if ko_tags else 'Без тегов'
                 except:
                     eng_title, rus_title, rus_desc, rus_tags = ['err'] * 4
 
