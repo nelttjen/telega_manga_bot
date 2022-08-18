@@ -1,10 +1,7 @@
-import os
-
 from aiogram import types
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher import FSMContext
-from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError
 
 from aiogram import Bot, Dispatcher
@@ -98,7 +95,9 @@ async def add_by_user_id(message: types.Message, state: FSMContext):
         await message.reply('Ошибка, попробуйте ещё раз (/cancel)')
 
 
-async def send_admins(text: str):
+async def send_admins(text: str, manual=False):
+    if not manual:
+        return
     session = db_session.create_session()
     users = session.query(models.RegisteredUsers).filter_by(is_admin=True).all()
     for user in users:

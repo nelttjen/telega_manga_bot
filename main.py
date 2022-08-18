@@ -21,6 +21,8 @@ load_dotenv(dotenv_path=Path('/.env'))
 
 
 async def fetch_manga():
+    if datetime.datetime.now().strftime('%H:%M') in ['16:59', '17:00', '17:59', '18:00', '18:59', '19:00']:
+        return
     session = db_session.create_session()
     users = session.query(models.RegisteredUsers).all()
     data = await fetch_toptoon()
@@ -45,9 +47,20 @@ async def fetch_manga():
         await send_by_data(data2)
 
 
+async def fetch_20():
+    times = 0
+    while times < 20:
+        await fetch_manga()
+        await asyncio.sleep(3)
+        times += 1
+        logging.info(f'Manual fetch {times}/10')
+
+
 async def scheduler():
-    aioschedule.every(30).seconds.do(fetch_manga)
-    # aioschedule.every(30).minutes.do(login_toptoon)
+    aioschedule.every(20).seconds.do(fetch_manga)
+    aioschedule.every().day.at('16:59').do(fetch_20)
+    aioschedule.every().day.at('17:59').do(fetch_20)
+    aioschedule.every().day.at('18:59').do(fetch_20)
     while True:
         await asyncio.sleep(1)
         await aioschedule.run_pending()
@@ -58,7 +71,7 @@ async def start_scheduler(_):
     if not DEBUG:
         await login_topton_manual()
         await login_toomics_manual()
-        await send_admins(f'[ADMIN] Bot started in PRODUCTION mode '
+        await send_admins(f'[ADMIN] Bot started '
                           f'({(datetime.datetime.now() - _start).seconds} seconds)')
         await fetch_manga()
         asyncio.create_task(scheduler())
@@ -69,10 +82,10 @@ async def start_scheduler(_):
 
 
 async def notify(_):
-    if _ is None:
+    if _:
         await send_admins(f'[ADMIN] Bot aborted by console at {datetime.datetime.now()} UTC+5')
     else:
-        await send_admins(f'[ADMIN] CRITICAL ERROR: Bot crushed')
+        await send_admins(f'[ADMIN] CRITICAL ERROR: Bot crushed', manual=True)
 
 
 def init_logger():
@@ -102,7 +115,7 @@ if __name__ == "__main__":
     try:
         executor.start_polling(dp, skip_updates=True, on_startup=start_scheduler, on_shutdown=notify)
     except KeyboardInterrupt:
-        notify(None)
+        notify(True)
         driver.quit()
         driver_mics.quit()
         quit()

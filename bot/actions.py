@@ -1,5 +1,7 @@
+import asyncio
 import datetime
 import inspect
+import logging
 
 import pyquery as pq
 
@@ -21,7 +23,10 @@ async def fetch_toptoon():
     if count_toptoon > 3:
         return {'success': False}
     session = db_session.create_session()
-    m_resp = toptoon_s.get('https://toptoon.com/latest').text
+    try:
+        m_resp = toptoon_s.get('https://toptoon.com/latest').text
+    except Exception:
+        return {'success': False}
     html = pq.PyQuery(m_resp)
     with open(ROOT_DIR + '\\temp\\toptoon.html', 'w', encoding='utf-8') as f:
         f.write(m_resp)
@@ -35,6 +40,7 @@ async def fetch_toptoon():
         count_toptoon = 0
         for item in html('.jsComicObj').items():
             if int(item.attr('data-comic-idx')) not in [i.index for i in created]:
+                await asyncio.sleep(1)
                 img_url = item.find('.thumbbox').attr('data-bg')
                 index = int(item.attr('data-comic-idx'))
                 str_index = item.attr('data-comic-id')
@@ -118,7 +124,7 @@ DEBUG: {index}
                     rating=rating,
                 )
                 session.add(new)
-                print(f'toptoon created: {index}')
+                logging.info(f'Toptoon created manga: {index}')
         session.commit()
         return {'success': True, 'data': data}
     else:
@@ -135,11 +141,14 @@ DEBUG: {index}
 
 async def fetch_toomics():
     global count_toomics
+    tries = 0
     if count_toomics > 3:
         return {'success': False}
     session = db_session.create_session()
-
-    m_resp = toomics_s.get('https://www.toomics.com/webtoon/toon_list/display/G2')
+    try:
+        m_resp = toomics_s.get('https://www.toomics.com/webtoon/toon_list/display/G2')
+    except:
+        return {'success': False}
     html = pq.PyQuery(m_resp.text)
     with open(ROOT_DIR + '\\temp\\toomics.html', 'w', encoding='utf-8') as f:
         f.write(m_resp.text)
@@ -155,9 +164,19 @@ async def fetch_toomics():
         exists_indexes = [item.index for item in exists]
         for item in items:
             if int(item.find('a').attr('href').split('/')[-1]) not in exists_indexes:
+                await asyncio.sleep(2)
                 item_link = f'https://www.toomics.com{item.find("a").attr("href")}'
-                html2 = pq.PyQuery(toomics_s.get(item_link).text)
-
+                resp2 = toomics_s.get(item_link)
+                with open(ROOT_DIR + '\\temp\\toomics_test.html', 'w', encoding='utf-8') as tom_out:
+                    tom_out.write(resp2.text)
+                html2 = pq.PyQuery(resp2.text)
+                while not html2('.modal-body > div > p').items():
+                    if tries >= 5:
+                        break
+                    html2 = pq.PyQuery(toomics_s.get(item_link))
+                    tries += 1
+                    await asyncio.sleep(1)
+                    logging.warning(f'Failed to get description toomics {tries}/5')
                 preview_img = item.find('.toon-dcard__thumbnail img').attr('data-original')
 
                 index = int(item.find('a').attr("href").split('/')[-1])
@@ -175,7 +194,7 @@ async def fetch_toomics():
                     rus_title = make_translations([ko_title, ])[0]['text'] if ko_title else 'Без названия'
                     rus_desc = make_translations([ko_desc, ])[0]['text'] if ko_desc else 'Без описания'
                     rus_tags = make_translations([ko_tags, ])[0]['text'] \
-                        .replace("# ", '#').replace('"', '').replace('-', '_') if ko_tags else 'Без тегов'
+                        .replace("# ", '#').replace('"', '').replace('-', '_') if ko_tags else '#Без_тегов'
                 except:
                     eng_title, rus_title, rus_desc, rus_tags = ['err'] * 4
 
@@ -183,7 +202,6 @@ async def fetch_toomics():
                 rus_tags = rus_tags[1:].split('#')
                 rus_tags = f"#{' #'.join(['_'.join(tag.strip().capitalize().split(' ')) for tag in rus_tags])}"
 
-                print(*[index, ko_title, ko_desc, ko_tags, eng_title, rus_title, rus_desc, rus_tags, chapter], sep='\n')
 
                 _new = models.ToomicsManga(
                     preview_link=preview_img,
@@ -198,7 +216,7 @@ async def fetch_toomics():
                     current_chapter=chapter,
                 )
                 session.add(_new)
-                print(f'toomics created: {index}')
+                logging.info(f'Toomics created manga: {index}')
                 text = f"""
 #toomics
 
@@ -225,7 +243,7 @@ async def fetch_toomics():
         return {'success': True, 'data': data}
     else:
         if count_toomics == 3:
-            await send_admins('[ADMIN] FAILED TO ENABLE 18+ TOOMICS, DISABLED!')
+            await send_admins('[ADMIN] FAILED TO LOGIN TOOMICS, DISABLED!')
             count_toomics = 10
             return {'success': False}
         count_toomics += 1
