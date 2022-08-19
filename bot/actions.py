@@ -36,7 +36,7 @@ async def fetch_toptoon():
 
     if html('a.switch_19mode').attr('data-adult') == '3':
         if count_toptoon > 0:
-            await send_admins(f'[ADMIN] TOPTOON Re-logged in successfully at {datetime.datetime.now()} UTC+5')
+            await send_admins(f'[ADMIN] TOPTOON Re-logged in successfully at {datetime.datetime.now()} UTC+5', level=2)
         count_toptoon = 0
         for item in html('.jsComicObj').items():
             if int(item.attr('data-comic-idx')) not in [i.index for i in created]:
@@ -129,11 +129,11 @@ DEBUG: {index}
         return {'success': True, 'data': data}
     else:
         if count_toptoon == 3:
-            await send_admins('[ADMIN] FAILED TO LOG IN TOPTOON, DISABLED!')
+            await send_admins('[ADMIN] FAILED TO LOG IN TOPTOON, DISABLED!', level=1)
             count_toptoon = 10
             return {'success': False}
         count_toptoon += 1
-        await send_admins(f'[ADMIN] TOPTOON BAD SESSION! Trying to re-log in {count_toptoon}/3')
+        await send_admins(f'[ADMIN] TOPTOON BAD SESSION! Trying to re-log in {count_toptoon}/3', level=2)
         await login_topton_manual()
 
         return {'success': False}
@@ -158,7 +158,7 @@ async def fetch_toomics():
     if html('.mode3.active'):
         if count_toomics > 3:
             count_toomics = 0
-            await send_admins(f'[ADMIN] Toomics re-logged in succesfully at {datetime.datetime.now()} UTC+5')
+            await send_admins(f'[ADMIN] Toomics re-logged in succesfully at {datetime.datetime.now()} UTC+5', level=2)
         items = html('.grid__li').items()
         exists = session.query(models.ToomicsManga).all()
         exists_indexes = [item.index for item in exists]
@@ -202,7 +202,6 @@ async def fetch_toomics():
                 rus_tags = rus_tags[1:].split('#')
                 rus_tags = f"#{' #'.join(['_'.join(tag.strip().capitalize().split(' ')) for tag in rus_tags])}"
 
-
                 _new = models.ToomicsManga(
                     preview_link=preview_img,
                     index=index,
@@ -243,10 +242,10 @@ async def fetch_toomics():
         return {'success': True, 'data': data}
     else:
         if count_toomics == 3:
-            await send_admins('[ADMIN] FAILED TO LOGIN TOOMICS, DISABLED!')
+            await send_admins('[ADMIN] FAILED TO LOGIN TOOMICS, DISABLED!', level=1)
             count_toomics = 10
             return {'success': False}
         count_toomics += 1
-        await send_admins(f'[ADMIN] TOOMICS BAD SESSION! Trying to re-log in {count_toomics}/3')
+        await send_admins(f'[ADMIN] TOOMICS BAD SESSION! Trying to re-log in {count_toomics}/3', level=2)
         await login_toomics_manual()
         return {'success': False}

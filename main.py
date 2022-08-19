@@ -20,8 +20,11 @@ from aiogram import executor
 load_dotenv(dotenv_path=Path('/.env'))
 
 
-async def fetch_manga():
-    if datetime.datetime.now().strftime('%H:%M') in ['16:59', '17:00', '17:59', '18:00', '18:59', '19:00']:
+async def fetch_manga(forced=False):
+    if datetime.datetime.now().strftime('%H:%M') in \
+            ['16:59', '17:00', '17:59', '18:00', '18:59', '19:00', '19:59', '20:00'] and \
+            not forced:
+        logging.info('Basic task has been canceled')
         return
     session = db_session.create_session()
     users = session.query(models.RegisteredUsers).all()
@@ -50,10 +53,10 @@ async def fetch_manga():
 async def fetch_20():
     times = 0
     while times < 20:
-        await fetch_manga()
+        await fetch_manga(forced=True)
         await asyncio.sleep(3)
         times += 1
-        logging.info(f'Manual fetch {times}/10')
+        logging.info(f'Manual fetch {times}/20')
 
 
 async def scheduler():
@@ -61,6 +64,7 @@ async def scheduler():
     aioschedule.every().day.at('16:59').do(fetch_20)
     aioschedule.every().day.at('17:59').do(fetch_20)
     aioschedule.every().day.at('18:59').do(fetch_20)
+    aioschedule.every().day.at('19:59').do(fetch_20)
     while True:
         await asyncio.sleep(1)
         await aioschedule.run_pending()
@@ -72,20 +76,20 @@ async def start_scheduler(_):
         await login_topton_manual()
         await login_toomics_manual()
         await send_admins(f'[ADMIN] Bot started '
-                          f'({(datetime.datetime.now() - _start).seconds} seconds)')
+                          f'({(datetime.datetime.now() - _start).seconds} seconds)', level=1)
         await fetch_manga()
         asyncio.create_task(scheduler())
 
     else:
         # DEBUG CODE
-        await send_admins('[ADMIN] Bot started in DEBUG mode')
+        await send_admins('[ADMIN] Bot started in DEBUG mode', level=1)
 
 
 async def notify(_):
     if _:
-        await send_admins(f'[ADMIN] Bot aborted by console at {datetime.datetime.now()} UTC+5')
+        await send_admins(f'[ADMIN] Bot aborted by console at {datetime.datetime.now()} UTC+5', level=1)
     else:
-        await send_admins(f'[ADMIN] CRITICAL ERROR: Bot crushed', manual=True)
+        await send_admins(f'[ADMIN] CRITICAL ERROR: Bot crushed', level=1)
 
 
 def init_logger():
@@ -113,6 +117,9 @@ if __name__ == "__main__":
 
     DEBUG = False
     try:
+        if not DEBUG:
+            driver.set_window_rect(3920, 0, 850, 1000)
+            driver_mics.set_window_rect(4790, 0, 1100, 1000)
         executor.start_polling(dp, skip_updates=True, on_startup=start_scheduler, on_shutdown=notify)
     except KeyboardInterrupt:
         notify(True)

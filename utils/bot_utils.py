@@ -18,9 +18,20 @@ def get_start_keyboard(message):
     keyb = types.ReplyKeyboardMarkup(resize_keyboard=True)
     if check_admin(message.from_user.id):
         button = types.KeyboardButton('Добавить пользователя в бота')
+        button2 = types.KeyboardButton('Настроить уведомления')
         keyb.add(button)
+        keyb.add(button2)
     else:
         keyb = types.ReplyKeyboardRemove()
+    return keyb
+
+
+def get_notify_keyboard():
+    keyb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    btn1 = types.KeyboardButton('Все')
+    btn2 = types.KeyboardButton('Вкл, выкл, ошибки')
+    btn3 = types.KeyboardButton('Никакие')
+    keyb.row(btn1, btn2, btn3)
     return keyb
 
 

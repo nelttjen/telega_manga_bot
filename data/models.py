@@ -18,6 +18,7 @@ class RegisteredUsers(Model):
     id = _(sqlalchemy.Integer, autoincrement=True, primary_key=True)
     user_id = _(sqlalchemy.Integer, unique=True)
     is_admin = _(sqlalchemy.Boolean, default=False)
+    notification_level = _(sqlalchemy.Integer, default=0)
 
 
 class ToptoonManga(Model):
