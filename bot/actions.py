@@ -165,21 +165,13 @@ async def fetch_toomics():
         for item in items:
             if int(item.find('a').attr('href').split('/')[-1]) not in exists_indexes:
                 await asyncio.sleep(2)
-                item_link = f'https://www.toomics.com{item.find("a").attr("href")}'
+                index = int(item.find('a').attr("href").split('/')[-1])
+                item_link = f'https://www.toomics.com/webtoon/episode/toon/{index}'
                 resp2 = toomics_s.get(item_link)
                 with open(ROOT_DIR + '\\temp\\toomics_test.html', 'w', encoding='utf-8') as tom_out:
                     tom_out.write(resp2.text)
                 html2 = pq.PyQuery(resp2.text)
-                while not html2('.modal-body > div > p').items():
-                    if tries >= 5:
-                        break
-                    html2 = pq.PyQuery(toomics_s.get(item_link))
-                    tries += 1
-                    await asyncio.sleep(1)
-                    logging.warning(f'Failed to get description toomics {tries}/5')
                 preview_img = item.find('.toon-dcard__thumbnail img').attr('data-original')
-
-                index = int(item.find('a').attr("href").split('/')[-1])
 
                 ko_title = item.find('.toon-dcard__title').text()
                 ko_desc = ' '.join([i.text() for i in html2('.modal-body > div > p').items()])
