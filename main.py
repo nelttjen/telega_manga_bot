@@ -52,15 +52,15 @@ async def fetch_manga(forced=False):
 
 async def fetch_20():
     times = 0
-    while times < 20:
+    while times < 25:
         await fetch_manga(forced=True)
         await asyncio.sleep(3)
         times += 1
-        logging.info(f'Manual fetch {times}/20')
+        logging.info(f'Manual fetch {times}/25')
 
 
 async def scheduler():
-    aioschedule.every(20).seconds.do(fetch_manga)
+    aioschedule.every(40).seconds.do(fetch_manga)
     aioschedule.every().day.at('16:59').do(fetch_20)
     aioschedule.every().day.at('17:59').do(fetch_20)
     aioschedule.every().day.at('18:59').do(fetch_20)
@@ -73,10 +73,14 @@ async def scheduler():
 async def start_scheduler(_):
     _start = datetime.datetime.now()
     if not DEBUG:
+        driver.set_window_rect(1920, 0, 850, 1000)
+        driver_mics.set_window_rect(2800, 0, 1100, 1000)
         await login_topton_manual()
         await login_toomics_manual()
         await send_admins(f'[ADMIN] Bot started '
                           f'({(datetime.datetime.now() - _start).seconds} seconds)', level=1)
+        driver.set_window_rect(3920, 0, 850, 1000)
+        driver_mics.set_window_rect(4790, 0, 1100, 1000)
         await fetch_manga()
         asyncio.create_task(scheduler())
 
@@ -117,9 +121,6 @@ if __name__ == "__main__":
 
     DEBUG = False
     try:
-        if not DEBUG:
-            driver.set_window_rect(3920, 0, 850, 1000)
-            driver_mics.set_window_rect(4790, 0, 1100, 1000)
         executor.start_polling(dp, skip_updates=True, on_startup=start_scheduler, on_shutdown=notify)
     except KeyboardInterrupt:
         notify(True)
