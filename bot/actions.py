@@ -2,6 +2,8 @@ import asyncio
 import datetime
 import inspect
 import logging
+import os
+import uuid
 
 import pyquery as pq
 
@@ -141,7 +143,6 @@ DEBUG: {index}
 
 async def fetch_toomics():
     global count_toomics
-    tries = 0
     if count_toomics > 3:
         return {'success': False}
     session = db_session.create_session()

@@ -86,6 +86,8 @@ async def start_scheduler(_):
 
     else:
         # DEBUG CODE
+
+        await login_topton_manual()
         await send_admins('[ADMIN] Bot started in DEBUG mode', level=1)
 
 
@@ -111,6 +113,7 @@ def init_logger():
 def init_dirs():
     os.mkdir(ROOT_DIR + '\\temp') if not os.path.exists(ROOT_DIR + '\\temp') else None
     os.mkdir(ROOT_DIR + '\\temp\\cookies') if not os.path.exists(ROOT_DIR + '\\temp\\cookies') else None
+    os.mkdir(ROOT_DIR + '\\temp\\chapters') if not os.path.exists(ROOT_DIR + '\\temp\\chapters') else None
 
 
 if __name__ == "__main__":
