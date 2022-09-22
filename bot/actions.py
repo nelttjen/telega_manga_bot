@@ -157,7 +157,7 @@ async def fetch_toomics():
     data = []
 
     if html('.mode3.active'):
-        if count_toomics > 3:
+        if count_toomics > 0:
             count_toomics = 0
             await send_admins(f'[ADMIN] Toomics re-logged in succesfully at {datetime.datetime.now()} UTC+5', level=2)
         items = html('.grid__li').items()
